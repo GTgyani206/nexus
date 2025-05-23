@@ -1,1 +1,151 @@
+# Rust-specific ignores
 /target
+/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Rust build artifacts
+debug/
+release/
+deps/
+incremental/
+*.rlib
+*.rmeta
+*.crate
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Vortex-specific files
+*.vx.bak
+*.vx.tmp
+vortex_history.txt
+vortex_session.log
+vortex_debug.log
+
+# Test and example outputs
+test_output/
+example_results/
+benchmark_results/
+
+# GPU simulation data
+gpu_cache/
+gpu_debug/
+*.gpu_log
+
+# Documentation build
+book/
+docs/_build/
+
+# Coverage reports
+tarpaulin-report.html
+coverage/
+lcov.info
+
+# Profiling data
+perf.data*
+cachegrind.out.*
+callgrind.out.*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.out
+*.err
+
+# Platform-specific
+.env
+.env.local
+.env.production
+.env.development
+
+# Lock files (keep Cargo.lock for applications)
+# Cargo.lock (uncomment for libraries)
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Rust analyzer
+rust-project.json
+
+# JetBrains
+.idea/
+*.iml
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# CTags
+tags
+
+# REPL history and cache
+.repl_history
+.vortex_cache/
+.interpreter_state
+
+# Build and distribution
+dist/
+build/
+out/
+
+# Node.js (if any JS tooling is added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if any Python tooling is added)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Miscellaneous
+*.log
+*.pid
+*.seed
+*.coverage
+.nyc_output
+.grunt
+.lock-wscript
+.cache
+.parcel-cache
