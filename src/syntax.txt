@@ -1,0 +1,44 @@
+Syntax of VORTEX
+
+Variable Declaration
+
+	let a: Int = 10            // Immutable
+	let mut b: Float = 3.14    // Mutable
+
+Control Flow
+	Standard Conditionals (CPU)
+
+		if x > 10:
+		    print("x is big")
+		then x == 10:
+		    print("x is ten")
+		else:
+		    print("x is small")
+
+	VORTEX Mode (GPU-inspired)
+
+		branch x > 10 => print("x is big")
+		branch x == 10 => print("x is ten")
+		fallback => print("x is small")
+
+Looping
+	Standard Loop
+
+		for i in range(0, 10):
+		    print(i)
+
+	GPU Loop
+
+		parallel i in 0..1024:
+		    data[i] += 1
+
+Functions
+
+	fn add(a: Int, b: Int) -> Int:
+	    return a + b
+
+With GPU Acceleration:
+
+	@gpu fn matrix_add(a: &mut Matrix, b: &Matrix):
+	    parallel i in range(0, a.size):
+		a[i] += b[i]
