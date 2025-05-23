@@ -6,67 +6,70 @@ mod gpu_runtime;
 mod interpreter;
 mod lexer;
 mod parser;
+mod repl;
 mod token;
 
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
 use token::Token;
+use std::env;
+use std::fs;
+use std::process;
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    
+    match args.len() {
+        1 => {
+            // No arguments - start REPL
+            if let Err(e) = repl::start_repl() {
+                eprintln!("REPL error: {}", e);
+                process::exit(1);
+            }
+        }
+        2 => {
+            // One argument - execute file
+            let filename = &args[1];
+            if let Err(e) = execute_file(filename) {
+                eprintln!("Execution error: {}", e);
+                process::exit(1);
+            }
+        }
+        _ => {
+            // Too many arguments
+            print_usage(&args[0]);
+            process::exit(1);
+        }
+    }
+}
+
+fn print_usage(program_name: &str) {
+    println!("VORTEX Language Interpreter");
+    println!();
+    println!("Usage:");
+    println!("  {}              Start interactive REPL", program_name);
+    println!("  {} <file.vx>    Execute Vortex file", program_name);
+    println!();
+    println!("Examples:");
+    println!("  {}              # Interactive mode", program_name);
+    println!("  {} example.vx   # Run example.vx", program_name);
+}
+
+fn execute_file(filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("=============================================================");
     println!("|| VORTEX LANGUAGE - GPU-accelerated programming language ||");
     println!("=============================================================\n");
+    
+    println!("Executing file: {}\n", filename);
 
-    let source = r#"
-        // Variable Declarations
-        let x: Int = 5
-        let mut y: Float = 3.14
+    // Read the file
+    let source = fs::read_to_string(filename)?;
 
-        // Standard Conditional
-        if x > 10:
-            print("x is big")
-        then x == 10:
-            print("x is ten")
-        else:
-            print("x is small")
-
-        // GPU-Inspired Conditional
-        branch x > 10 => print("x is big")
-        branch x == 10 => print("x is ten")
-        fallback => print("x is small")
-
-        // Standard Loop
-        for i in range(0, 3):
-            print(i)
-
-        // GPU Loop
-        parallel i in 0..3:
-            print(i)
-
-        // CPU Function
-        fn add_cpu(a: Int, b: Int) -> Int:
-            return a + b
-
-        // GPU Function
-        @gpu fn add_gpu(a: Int, b: Int):
-            return a + b
-
-        // Function Calls
-        let cpu_result = add_cpu(x, 10)
-        print("CPU result:")
-        print(cpu_result)
-
-        let gpu_result = add_gpu(x, 10)
-        print("GPU result:")
-        print(gpu_result)
-    "#;
-
-    println!("Source code:\n{}\n", source);
     println!("======================= LEXICAL ANALYSIS =======================");
 
     // Step 1: Lexing
-    let mut lexer = Lexer::new(source);
+    let mut lexer = Lexer::new(&source);
     let mut tokens = Vec::new();
 
     loop {
@@ -78,15 +81,11 @@ fn main() {
     }
 
     println!("Tokens generated: {}", tokens.len());
-    println!("\nToken stream:");
-    for (i, tok) in tokens.iter().enumerate() {
-        println!("{:3}: {:?}", i, tok);
-    }
 
     println!("\n========================= PARSING ============================");
 
     // Step 2: Parsing
-    let mut parser = Parser::new(tokens.clone());
+    let mut parser = Parser::new(tokens);
     let program = parser.parse();
 
     println!("\nAbstract Syntax Tree (AST):");
@@ -95,15 +94,17 @@ fn main() {
     }
 
     println!("\n====================== INTERPRETATION ========================");
-
+    
     // Step 3: Interpret
     let mut interpreter = Interpreter::new();
     match interpreter.interpret(program) {
         Ok(_) => println!("\nExecution completed successfully."),
-        Err(e) => eprintln!("\nRuntime error: {}", e),
+        Err(e) => return Err(format!("Runtime error: {}", e).into()),
     }
-
+    
     println!("\n=============================================================");
     println!("|| VORTEX execution finished                              ||");
     println!("=============================================================");
+    
+    Ok(())
 }

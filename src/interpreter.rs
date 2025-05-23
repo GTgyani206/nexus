@@ -23,7 +23,8 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Nil,
-    Function(String, Vec<String>),
+    // Function(name, param_names, body, is_gpu)
+    Function(String, Vec<String>, Box<crate::ast::Stmt>, bool),
 }
 
 impl fmt::Display for Value {
@@ -34,7 +35,7 @@ impl fmt::Display for Value {
             Value::String(s) => write!(f, "{}", s),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Nil => write!(f, "nil"),
-            Value::Function(name, _) => write!(f, "<function {}>", name),
+            Value::Function(name, ..) => write!(f, "<function {}>", name),
         }
     }
 }
@@ -53,7 +54,12 @@ impl Environment {
         };
         env.define(
             "print".to_string(),
-            Value::Function("print".to_string(), vec!["value".to_string()]),
+            Value::Function(
+                "print".to_string(),
+                vec!["value".to_string()],
+                Box::new(crate::ast::Stmt::Block(vec![])), // dummy body
+                false, // not a GPU function
+            ),
         );
         Rc::new(RefCell::new(env))
     }
@@ -90,7 +96,7 @@ impl Environment {
 
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
-    gpu_runtime: GPURuntime,
+    pub gpu_runtime: GPURuntime,
 }
 
 impl Interpreter {
@@ -199,94 +205,120 @@ impl Interpreter {
             }
             Stmt::For { var, range, body } => {
                 println!("Executing 'for' loop with variable '{}'", var);
-                // Basic implementation for 'for' loops
-                match self.evaluate(&range)? {
-                    RuntimeResult::Value(Value::Number(count)) => {
-                        println!("Loop range evaluated to number: {}", count);
-                        for i in 0..count {
-                            println!("For loop iteration {}", i);
-                            // Create a new environment for each iteration
-                            let loop_env = Environment::with_parent(Rc::clone(&self.environment));
-                            let prev_env = std::mem::replace(&mut self.environment, loop_env);
-                            
-                            // Define the loop variable
-                            self.environment.borrow_mut().define(var.clone(), Value::Number(i));
-                            
-                            // Execute the loop body
-                            match self.execute(body) {
-                                Ok(RuntimeResult::Return(v)) => {
-                                    println!("Return statement in loop body, exiting loop");
-                                    self.environment = prev_env;
-                                    return Ok(RuntimeResult::Return(v));
-                                },
-                                Err(e) => {
-                                    println!("Error in loop body: {}", e);
-                                    self.environment = prev_env;
-                                    return Err(e);
-                                },
-                                _ => {}
-                            }
-                            
-                            // Restore the environment
-                            self.environment = prev_env;
-                        }
-                        println!("For loop completed");
-                        Ok(RuntimeResult::Value(Value::Nil))
-                    },
-                    RuntimeResult::Value(value) => {
-                        // Handle range expressions (0..10)
-                        println!("Loop range evaluated to: {:?}", value);
-                        // Default to empty range
-                        println!("Warning: For loop range is not a number or valid range");
-                        Ok(RuntimeResult::Value(Value::Nil))
+                
+                // Handle different range types
+                let (start_val, end_val) = match &range {
+                    Expr::Range { start, end } => {
+                        let s = match self.evaluate(start)? {
+                            RuntimeResult::Value(Value::Number(n)) => n,
+                            _ => 0,
+                        };
+                        let e = match self.evaluate(end)? {
+                            RuntimeResult::Value(Value::Number(n)) => n,
+                            _ => 0,
+                        };
+                        (s, e)
                     },
                     _ => {
-                        println!("Warning: For loop range evaluation failed");
-                        Ok(RuntimeResult::Value(Value::Nil))
+                        // Try to evaluate as a single number (0..n)
+                        match self.evaluate(&range)? {
+                            RuntimeResult::Value(Value::Number(count)) => (0, count),
+                            _ => {
+                                println!("Warning: For loop range is not a valid range");
+                                return Ok(RuntimeResult::Value(Value::Nil));
+                            }
+                        }
                     }
+                };
+                
+                println!("Loop range: {}..{}", start_val, end_val);
+                for i in start_val..end_val {
+                    println!("For loop iteration {}", i);
+                    // Create a new environment for each iteration
+                    let loop_env = Environment::with_parent(Rc::clone(&self.environment));
+                    let prev_env = std::mem::replace(&mut self.environment, loop_env);
+                    
+                    // Define the loop variable
+                    self.environment.borrow_mut().define(var.clone(), Value::Number(i));
+                    
+                    // Execute the loop body
+                    match self.execute(body) {
+                        Ok(RuntimeResult::Return(v)) => {
+                            println!("Return statement in loop body, exiting loop");
+                            self.environment = prev_env;
+                            return Ok(RuntimeResult::Return(v));
+                        },
+                        Err(e) => {
+                            println!("Error in loop body: {}", e);
+                            self.environment = prev_env;
+                            return Err(e);
+                        },
+                        _ => {}
+                    }
+                    
+                    // Restore the environment
+                    self.environment = prev_env;
                 }
+                println!("For loop completed");
+                Ok(RuntimeResult::Value(Value::Nil))
             }
             Stmt::Parallel { var, range, body } => {
                 println!("Executing parallel loop with variable '{}'", var);
                 
-                // Use the GPU runtime for parallel execution
-                match self.evaluate(&range)? {
-                    RuntimeResult::Value(Value::Number(count)) => {
-                        println!("Using GPU runtime for parallel execution over range 0..{}", count);
-                        // Convert the range to an expression for the GPU runtime
-                        let range_expr = Expr::Number(count);
-                        
-                        // Execute in parallel on the GPU
-                        match self.gpu_runtime.execute_parallel(&var, &range_expr, body) {
-                            Ok(_) => {
-                                println!("GPU parallel execution completed successfully");
-                                Ok(RuntimeResult::Value(Value::Nil))
-                            },
-                            Err(e) => {
-                                println!("GPU parallel execution failed: {}", e);
-                                println!("Falling back to sequential execution");
-                                
-                                // Fall back to sequential execution
-                                for i in 0..count {
-                                    let loop_env = Environment::with_parent(Rc::clone(&self.environment));
-                                    let prev_env = std::mem::replace(&mut self.environment, loop_env);
-                                    
-                                    self.environment.borrow_mut().define(var.clone(), Value::Number(i));
-                                    
-                                    let _ = self.execute(body); // Ignore returns in parallel execution
-                                    
-                                    self.environment = prev_env;
-                                }
-                                Ok(RuntimeResult::Value(Value::Nil))
-                            }
-                        }
-                    },
-                    RuntimeResult::Value(value) => {
-                        println!("Warning: Parallel loop range is not a number: {:?}", value);
-                        Ok(RuntimeResult::Value(Value::Nil))
+                // Handle different range types for parallel execution
+                let (start_val, end_val) = match &range {
+                    Expr::Range { start, end } => {
+                        let s = match self.evaluate(start)? {
+                            RuntimeResult::Value(Value::Number(n)) => n,
+                            _ => 0,
+                        };
+                        let e = match self.evaluate(end)? {
+                            RuntimeResult::Value(Value::Number(n)) => n,
+                            _ => 0,
+                        };
+                        (s, e)
                     },
                     _ => {
-                        println!("Warning: Parallel loop range evaluation failed");
+                        // Try to evaluate as a single number (0..n)
+                        match self.evaluate(&range)? {
+                            RuntimeResult::Value(Value::Number(count)) => (0, count),
+                            _ => {
+                                println!("Warning: Parallel loop range is not a valid range");
+                                return Ok(RuntimeResult::Value(Value::Nil));
+                            }
+                        }
+                    }
+                };
+                
+                println!("Using GPU runtime for parallel execution over range {}..{}", start_val, end_val);
+                
+                // Convert the range to an expression for the GPU runtime
+                let range_expr = Expr::Range {
+                    start: Box::new(Expr::Number(start_val)),
+                    end: Box::new(Expr::Number(end_val)),
+                };
+                
+                // Execute in parallel on the GPU
+                match self.gpu_runtime.execute_parallel(&var, &range_expr, body) {
+                    Ok(_) => {
+                        println!("GPU parallel execution completed successfully");
+                        Ok(RuntimeResult::Value(Value::Nil))
+                    },
+                    Err(e) => {
+                        println!("GPU parallel execution failed: {}", e);
+                        println!("Falling back to sequential execution");
+                        
+                        // Fall back to sequential execution
+                        for i in start_val..end_val {
+                            let loop_env = Environment::with_parent(Rc::clone(&self.environment));
+                            let prev_env = std::mem::replace(&mut self.environment, loop_env);
+                            
+                            self.environment.borrow_mut().define(var.clone(), Value::Number(i));
+                            
+                            let _ = self.execute(body); // Ignore returns in parallel execution
+                            
+                            self.environment = prev_env;
+                        }
                         Ok(RuntimeResult::Value(Value::Nil))
                     }
                 }
@@ -300,29 +332,29 @@ impl Interpreter {
                 }
             }
             Stmt::FunctionDef { name, params, return_type: _, body, gpu } => {
-                // Register the function in the environment
+                // Register the function in the environment, storing its body and param names
                 let param_names: Vec<String> = params.iter()
                     .map(|(name, _)| name.clone())
                     .collect();
-                
+
                 self.environment.borrow_mut().define(
                     name.clone(),
-                    Value::Function(name.clone(), param_names)
+                    Value::Function(name.clone(), param_names.clone(), body.clone(), *gpu)
                 );
-                
+
                 if *gpu {
                     println!("GPU function '{}' registered", name);
                     // Register with GPU runtime too
                     let param_types: Vec<(String, String)> = params.iter()
                         .map(|(name, type_opt)| (name.clone(), type_opt.clone().unwrap_or_else(|| "Any".to_string())))
                         .collect();
-                    
+
                     match self.gpu_runtime.register_function(name.clone(), param_types, body) {
                         Ok(_) => {},
                         Err(e) => println!("Warning: Failed to register GPU function: {}", e),
                     }
                 }
-                
+
                 Ok(RuntimeResult::Value(Value::Nil))
             }
             #[allow(unreachable_patterns)]
@@ -421,11 +453,26 @@ impl Interpreter {
                     RuntimeResult::None => Ok(RuntimeResult::Return(Value::Nil)),
                 }
             }
-            Expr::Range { start, end: _ } => {
-                // For now, ranges are just evaluated to the start value
-                match self.evaluate(start) {
-                    Ok(RuntimeResult::Value(val)) => Ok(RuntimeResult::Value(val)),
-                    _ => Ok(RuntimeResult::Value(Value::Number(0))), // Default to 0
+            Expr::Range { start, end } => {
+                // Evaluate both start and end of the range
+                let start_val = match self.evaluate(start)? {
+                    RuntimeResult::Value(val) => val,
+                    _ => return Ok(RuntimeResult::Value(Value::Number(0))),
+                };
+                
+                let end_val = match self.evaluate(end)? {
+                    RuntimeResult::Value(val) => val,
+                    _ => return Ok(RuntimeResult::Value(Value::Number(0))),
+                };
+                
+                // For loop ranges, we return the range as a special value
+                // The loop execution will handle the actual iteration
+                match (start_val, end_val) {
+                    (Value::Number(s), Value::Number(e)) => {
+                        // Return the end value for simple loop counting
+                        Ok(RuntimeResult::Value(Value::Number(e - s)))
+                    },
+                    _ => Ok(RuntimeResult::Value(Value::Number(0))),
                 }
             },
             Expr::FunctionCall { callee, arguments } => {
@@ -480,9 +527,9 @@ impl Interpreter {
                             };
                             
                             match function_result {
-                                Some(Value::Function(fn_name, _)) => {
-                                    println!("Calling CPU function: {}", fn_name);
-                                    
+                                Some(Value::Function(fn_name, param_names, fn_body, is_gpu)) => {
+                                    println!("Calling {} function: {}", if is_gpu { "GPU" } else { "CPU" }, fn_name);
+
                                     // Evaluate all arguments
                                     let mut arg_values = Vec::new();
                                     for arg in arguments {
@@ -493,18 +540,38 @@ impl Interpreter {
                                             }
                                         }
                                     }
-                                    
-                                    // For this example, just return a dummy result
-                                    if name == "add_cpu" && arg_values.len() >= 2 {
-                                        if let (Value::Number(a), Value::Number(b)) = (&arg_values[0], &arg_values[1]) {
-                                            let result = a + b;
-                                            println!("Function returned: {}", result);
-                                            return Ok(RuntimeResult::Value(Value::Number(result)));
-                                        }
+
+                                    if arg_values.len() != param_names.len() {
+                                        return Err(format!(
+                                            "Function '{}' expects {} arguments, got {}",
+                                            fn_name,
+                                            param_names.len(),
+                                            arg_values.len()
+                                        ));
                                     }
-                                    
-                                    println!("Function returned default value");
-                                    Ok(RuntimeResult::Value(Value::Number(0)))
+
+                                    // Create a new environment for the function call
+                                    let prev_env = Rc::clone(&self.environment);
+                                    let func_env = Environment::with_parent(prev_env.clone());
+                                    self.environment = func_env;
+
+                                    // Bind arguments to parameter names
+                                    for (param, value) in param_names.iter().zip(arg_values.into_iter()) {
+                                        self.environment.borrow_mut().define(param.clone(), value);
+                                    }
+
+                                    // Execute the function body
+                                    let result = match self.execute(&fn_body) {
+                                        Ok(RuntimeResult::Return(val)) => Ok(RuntimeResult::Value(val)),
+                                        Ok(RuntimeResult::Value(val)) => Ok(RuntimeResult::Value(val)),
+                                        Ok(_) => Ok(RuntimeResult::Value(Value::Nil)),
+                                        Err(e) => Err(e),
+                                    };
+
+                                    // Restore previous environment
+                                    self.environment = prev_env;
+
+                                    result
                                 },
                                 _ => {
                                     println!("Warning: Undefined function: {}", name);

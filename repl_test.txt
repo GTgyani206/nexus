@@ -1,0 +1,51 @@
+// REPL Test Script for Vortex Language
+// This file demonstrates commands to test in the REPL
+
+// 1. Basic variable declarations
+let x = 42
+let mut y = 3.14
+
+// 2. Print variables
+print("x =")
+print(x)
+print("y =")
+print(y)
+
+// 3. Simple arithmetic
+let sum = x + 10
+print("sum =")
+print(sum)
+
+// 4. Conditional statement (single line for REPL)
+if x > 40: print("x is greater than 40")
+
+// 5. Function definition (multi-line)
+fn square(n: Int) -> Int:
+    return n * n
+
+// 6. Function call
+let result = square(7)
+print("square(7) =")
+print(result)
+
+// 7. GPU function
+@gpu fn gpu_add(a: Int, b: Int):
+    return a + b
+
+// 8. GPU function call
+let gpu_result = gpu_add(10, 20)
+print("GPU result =")
+print(gpu_result)
+
+// 9. For loop
+for i in 0..3:
+    print("Loop iteration:")
+    print(i)
+
+// Commands to test interactively:
+// :help
+// :history
+// :env
+// :clear
+// :reset
+// :exit

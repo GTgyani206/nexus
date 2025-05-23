@@ -1,0 +1,21 @@
+// Test file to verify range parsing fix
+let x = 0
+
+// Test range function syntax
+for i in range(0, 3):
+    print("range function:")
+    print(i)
+
+// Test range operator syntax  
+parallel j in 0..3:
+    print("range operator:")
+    print(j)
+
+// Test with variables
+let start = 1
+let end = 4
+for k in start..end:
+    print("variable range:")
+    print(k)
+
+print("Range parsing test complete")

@@ -245,6 +245,11 @@ impl Lexer{
                     if c.is_ascii_digit(){
                         number.push(self.advance().unwrap());
                     }else if c == '.' && !is_float {
+                        // Check if this is a range operator (..) not a decimal point
+                        if self.peek_next() == Some('.') {
+                            // This is a range operator, don't consume the dot
+                            break;
+                        }
                         is_float = true;
                         number.push(self.advance().unwrap());
                     }else{
