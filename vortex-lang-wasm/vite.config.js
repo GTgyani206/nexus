@@ -13,7 +13,7 @@ export default defineConfig({
     // The WASM pkg files are usually in `../pkg` relative to `www` if `outDir` is `dist` at root.
     // If `root` is `www`, `outDir` is relative to `www`.
     // To place build output in `GTTechnologies/vortex-lang-wasm/dist/`:
-    outDir: '../dist', 
+    outDir: '../docs', 
     emptyOutDir: true, // Clean the dist folder before building
   },
   // Ensure Vite can find the WASM package.
