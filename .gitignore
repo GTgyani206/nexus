@@ -149,3 +149,6 @@ ENV/
 .lock-wscript
 .cache
 .parcel-cache
+
+# Deployment keys
+gh-pages-key
