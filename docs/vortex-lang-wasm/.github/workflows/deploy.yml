@@ -1,0 +1,44 @@
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust and wasm-pack
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: wasm-tools
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --force
+
+      - name: Build WASM package
+        working-directory: vortex-lang-wasm
+        run: wasm-pack build --target web
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        working-directory: vortex-lang-wasm
+        run: npm install
+
+      - name: Build Vite app
+        working-directory: vortex-lang-wasm
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.DEPLOY_KEY }}
+          publish_dir: vortex-lang-wasm/dist

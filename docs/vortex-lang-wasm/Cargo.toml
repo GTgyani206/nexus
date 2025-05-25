@@ -1,0 +1,20 @@
+[package]
+name = "vortex-lang-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Vortex Lang WebAssembly (WASM) library for browser-based REPL"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = false
+strip = true
