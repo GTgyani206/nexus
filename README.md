@@ -1,6 +1,10 @@
-# Vortex Language 🌪️
+<img src="https://github.com/user-attachments/assets/d7da596d-a1ff-4683-b4e0-4f72f0e0e729" width="15%">
+
+
+# Vortex Language 
 
 Vortex is a modern, GPU-accelerated programming language designed for parallel computation and high-performance computing. It features both traditional CPU execution and innovative GPU-accelerated constructs with an interactive REPL environment.
+
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/LICENSE-GNU%20GPL%20v3.0-blue.svg)](LICENSE)
@@ -22,7 +26,7 @@ Vortex is a modern, GPU-accelerated programming language designed for parallel c
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/vortex-lang.git
+git clone https://github.com/GTgyani206/VORTEX-lang.git
 cd vortex-lang
 
 # Build the project
@@ -31,6 +35,9 @@ cargo build --release
 # Run the REPL
 cargo run
 ```
+
+# NOTE
+> To use cli mode you need to first delete the `/vortex-lang-wasm` as this is the WASM library for the web REPL
 
 ### Your First Vortex Program
 
@@ -73,8 +80,8 @@ cargo run
 ### REPL Features
 
 - **📚 Command History**: Navigate with ↑/↓ arrows
-- **🎨 Colored Output**: Syntax highlighting and error messages
-- **📝 Multi-line Input**: Automatic detection for functions and loops
+- **🎨 Colored Output**: Syntax highlighting and error messages (To be created)
+- **📝 Multi-line Input**: Automatic detection for functions and loops (To be created)
 - **💾 File Loading**: Load and execute external files
 - **🔄 State Management**: Reset and inspect interpreter state
 
@@ -395,19 +402,14 @@ cargo watch -x test
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU GPL v3.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- Rust community for excellent tooling
-- GPU computing research community
-- Contributors and early adopters
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/vortex-lang/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/vortex-lang/discussions)
-- **Documentation**: [Project Wiki](https://github.com/your-org/vortex-lang/wiki)
+- **Issues**: [GitHub Issues](https://github.com/GTgyani206/VORTEX-lang/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/GTgyani206/VORTEX-lang/discussions)
+- **Documentation**: to be updated
 
 ---
 
