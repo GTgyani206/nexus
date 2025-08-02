@@ -1,5 +1,9 @@
 // ||shree ganesh||
 //this code is for creating the graph
+// For VICE which is the virtual machine that computes by rewriting graphs made up of small
+// building blocks called nodes. These graphs are called interaction nets.
+//
+// Here in this file we are defining the structure of nodes and their properties
 use std::collections::{HashMap, VecDeque};
 
 //Using hashmap to store function definition by name
@@ -13,6 +17,7 @@ pub type NodeID = usize; // this is done to uniquely identify nodes in the netwo
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 
 //port will be used as a connector between the nodes...
+// Ports let nodes link to each other in a flexible, "plug-and-play" manner.
 pub struct Port {
     pub node: NodeId,
     pub slot: usize,
@@ -40,19 +45,28 @@ impl Port {
 }
 
 #[derive(Debug, Clone)]
+
+//here we are defining the type of nodes and their properties
 pub enum Node {
-    Con { tag: i32, ports: [Port; 2] },
-    Dup { ports: [Port; 2] },
-    Ref { name: String, port: Port },
-    Era { port: Port },
+    Con { tag: i32, ports: [Port; 2] }, //Represents data (like numbers, lists, etc). Has a tag and two connections.
+    Dup { ports: [Port; 2] },           //Copies data, enabling sharing. Has two connections.
+    Ref { name: String, port: Port }, //Calls a function or references a definition. Has a name and one connection.
+    Era { port: Port },               //Deletes or ignores data. Has one connection
 }
 
 #[derive(Debug, Clone, Copy)]
+
+//Redex: reducible expression, one from the lambda calculus
+// This is actually one of the most interesting topic, it is a data structure
+// that is representing a pair of nodes that are connected to each other
+// and are ready to interact with each other.
 pub struct Redex {
     pub a: NodeId,
     pub b: NodeId,
 }
 
+//It is basically the blueprint for a network of nodes and connections,
+// upon which we can build our program.
 pub struct Net {
     nodes: Vec<Node>,
     active_pairs: VecDeque<(Redex)>,
