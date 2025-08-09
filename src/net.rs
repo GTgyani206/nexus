@@ -12,7 +12,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt;
 // This imports the formatting trait so we can print debugging information
 
-pub type NodeID = usize; // this is done to uniquely identify nodes in the network and usize is for dynamically match the pointer size
+pub type NodeId = usize; // this is done to uniquely identify nodes in the network and usize is for dynamically match the pointer size
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 
@@ -69,8 +69,8 @@ pub struct Redex {
 // upon which we can build our program.
 pub struct Net {
     nodes: Vec<Node>,
-    active_pairs: VecDeque<(Redex)>,
-    definitions: HashMap<String, Node>,
+    active_pairs: VecDeque<Redex>, // Removed unnecessary parentheses
+    definitions: HashMap<String, NodeId>, // Changed Node to NodeId
 }
 
 impl Net {
@@ -97,7 +97,8 @@ impl Net {
     }
 
     pub fn connect(&mut self, a: NodeId, a_slot: usize, b: NodeId, b_slot: usize) {
-        match &mut self.node[a] {
+        match &mut self.nodes[a] {
+            // Fixed 'node' to 'nodes'
             Node::Con { ports, .. } if a_slot < 2 => {
                 ports[a_slot] = Port::new(b, b_slot);
             }
@@ -105,13 +106,31 @@ impl Net {
                 ports[a_slot] = Port::new(b, b_slot);
             }
 
-            Node::Ref { ports, .. } if a_slot == 0 => {
-                *ports = Port::new(b, b_slot);
+            Node::Ref { port, .. } if a_slot == 0 => {
+                // Fixed 'ports' to 'port'
+                *port = Port::new(b, b_slot);
             }
             Node::Era { port, .. } if a_slot == 0 => {
                 *port = Port::new(b, b_slot);
             }
 
+            _ => panic!("Invalid port slot for node"),
+        }
+
+        // Update the b node as well
+        match &mut self.nodes[b] {
+            Node::Con { ports, .. } if b_slot < 2 => {
+                ports[b_slot] = Port::new(a, a_slot);
+            }
+            Node::Dup { ports, .. } if b_slot < 2 => {
+                ports[b_slot] = Port::new(a, a_slot);
+            }
+            Node::Ref { port, .. } if b_slot == 0 => {
+                *port = Port::new(a, a_slot);
+            }
+            Node::Era { port, .. } if b_slot == 0 => {
+                *port = Port::new(a, a_slot);
+            }
             _ => panic!("Invalid port slot for node"),
         }
 
@@ -154,97 +173,93 @@ impl Net {
         self.active_pairs.len()
     }
 
+    // Same as before, but updating the clone_node method
+
     pub fn clone_subgraph(&mut self, root: NodeId) -> NodeId {
         let mut cloned_nodes = HashMap::new();
-        self.clone_node(root, &mut cloned_nodes);
+        self.clone_node(root, &mut cloned_nodes)
     }
 
     fn clone_node(&mut self, id: NodeId, cloned_nodes: &mut HashMap<NodeId, NodeId>) -> NodeId {
+        // Check if we've already cloned this node
         if let Some(&cloned_id) = cloned_nodes.get(&id) {
             return cloned_id;
         }
 
-        let new_id = match &self.nodes[id] {
-            Node::Con { tag, .. } => {
-                let new_node = Node::Con {
-                    tag: *tag,
-                    ports: [Port::null(), Port::null()],
-                };
-                self.create_node(new_node)
-            }
-            Node::Dup { .. } => {
-                let new_node = Node::Dup {
-                    ports: [Port::null(), Port::null()],
-                };
-                self.create_node(new_node)
-            }
-            Node::Ref { name, .. } => {
-                let new_node = Node::Ref {
-                    name: name.clone(),
-                    ports: [Port::null(), Port::null()],
-                };
-                self.create_node(new_node)
-            }
-            Node::Era { .. } => {
-                let new_node = Node::Era {
-                    ports: Port::null(),
-                };
-                self.create_node(new_node)
+        // First, create the new node based on the type
+        let new_id = {
+            let node = &self.nodes[id];
+            match node {
+                Node::Con { tag, .. } => {
+                    let new_node = Node::Con {
+                        tag: *tag,
+                        ports: [Port::null(), Port::null()],
+                    };
+                    self.create_node(new_node)
+                }
+                Node::Dup { .. } => {
+                    let new_node = Node::Dup {
+                        ports: [Port::null(), Port::null()],
+                    };
+                    self.create_node(new_node)
+                }
+                Node::Ref { name, .. } => {
+                    let new_node = Node::Ref {
+                        name: name.clone(),
+                        port: Port::null(),
+                    };
+                    self.create_node(new_node)
+                }
+                Node::Era { .. } => {
+                    let new_node = Node::Era { port: Port::null() };
+                    self.create_node(new_node)
+                }
             }
         };
+
+        // Record that this node has been cloned
         cloned_nodes.insert(id, new_id);
 
-        match &self.nodes[id] {
-            Node::Con { ports, .. } => {
-                for (i, port) in ports.iter().enumerate() {
+        // Now we need to clone the connections
+        // First, collect all the connections we need to clone
+        let connections = {
+            let mut connections_to_clone = Vec::new();
+            let node = &self.nodes[id];
+
+            match node {
+                Node::Con { ports, .. } => {
+                    for (i, port) in ports.iter().enumerate() {
+                        if !port.is_null() {
+                            connections_to_clone.push((i, port.node, port.slot));
+                        }
+                    }
+                }
+                Node::Dup { ports, .. } => {
+                    for (i, port) in ports.iter().enumerate() {
+                        if !port.is_null() {
+                            connections_to_clone.push((i, port.node, port.slot));
+                        }
+                    }
+                }
+                Node::Ref { port, .. } => {
                     if !port.is_null() {
-                        let connected_id = port.node;
-                        let connected_slot = port.slot;
-
-                        let cloned_connected = self.clone_node(connected_id, cloned_nodes);
-
-                        self.connect_nodes(new_id, i, cloned_connected, connected_slot);
+                        connections_to_clone.push((0, port.node, port.slot));
+                    }
+                }
+                Node::Era { port, .. } => {
+                    if !port.is_null() {
+                        connections_to_clone.push((0, port.node, port.slot));
                     }
                 }
             }
-            Node::Dup { ports, .. } => {
-                for (i, port) in ports.iter().enumerate() {
-                    if !port.is_null() {
-                        let connected_id = port.node;
-                        let connected_slot = port.slot;
 
-                        // Clone the connected node
-                        let cloned_connected = self.clone_node(connected_id, cloned_nodes);
+            connections_to_clone
+        };
 
-                        // Connect the clones together
-                        self.connect(new_id, i, cloned_connected, connected_slot);
-                    }
-                }
-            }
-            Node::Ref { port, .. } => {
-                if !port.is_null() {
-                    let connected_id = port.node;
-                    let connected_slot = port.slot;
-
-                    // Clone the connected node
-                    let cloned_connected = self.clone_node(connected_id, cloned_nodes);
-
-                    // Connect the clones together
-                    self.connect(new_id, 0, cloned_connected, connected_slot);
-                }
-            }
-            Node::Era { port, .. } => {
-                if !port.is_null() {
-                    let connected_id = port.node;
-                    let connected_slot = port.slot;
-
-                    // Clone the connected node
-                    let cloned_connected = self.clone_node(connected_id, cloned_nodes);
-
-                    // Connect the clones together
-                    self.connect(new_id, 0, cloned_connected, connected_slot);
-                }
-            }
+        // Now process the connections
+        for (i, connected_id, connected_slot) in connections {
+            let cloned_connected = self.clone_node(connected_id, cloned_nodes);
+            self.connect(new_id, i, cloned_connected, connected_slot);
         }
 
         new_id
@@ -278,8 +293,8 @@ impl Net {
             Node::Ref { name, port } => {
                 format!("REF({}):{}", name, self.port_str(port))
             }
-            Node::Era { port, .. } => {
-                format!("ERA({}):{}", self.port_str(port))
+            Node::Era { port } => {
+                format!("ERA:{}", self.port_str(port))
             }
         }
     }
