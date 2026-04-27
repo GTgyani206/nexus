@@ -1,0 +1,66 @@
+// || shree ganesh ||
+// Example Vortex Program - Demonstrates all language features
+
+// Variable Declarations
+let x: Int = 5
+let mut y: Float = 3.14
+
+print("=== Variable Declarations ===")
+print("x =")
+print(x)
+print("y =")
+print(y)
+
+// Standard Conditional
+print("\n=== Standard Conditional (if-then-else) ===")
+if x > 10:
+    print("x is big")
+then x == 5:
+    print("x is exactly 5")
+else:
+    print("x is small")
+
+// GPU-Inspired Conditional
+print("\n=== GPU-Inspired Conditional (branch-fallback) ===")
+branch x > 10 => print("branch: x is big")
+branch x == 5 => print("branch: x is exactly 5")
+fallback => print("fallback: default case")
+
+// Standard Loop
+print("\n=== Standard Loop (for) ===")
+for i in range(0, 3):
+    print("for loop iteration:")
+    print(i)
+
+// GPU Loop
+print("\n=== GPU Loop (parallel) ===")
+parallel i in 0..3:
+    print("parallel iteration:")
+    print(i)
+
+// CPU Function
+print("\n=== Function Definitions ===")
+fn add_cpu(a: Int, b: Int) -> Int:
+    return a + b
+
+// GPU Function
+@gpu fn add_gpu(a: Int, b: Int):
+    return a + b
+
+// Function Calls
+print("\n=== Function Calls ===")
+let cpu_result = add_cpu(x, 10)
+print("CPU result:")
+print(cpu_result)
+
+let gpu_result = add_gpu(x, 20)
+print("GPU result:")
+print(gpu_result)
+
+// Complex Expression
+print("\n=== Complex Expressions ===")
+let complex = add_cpu(x, y)
+print("Complex calculation result:")
+print(complex)
+
+print("\n=== Example Complete ===")

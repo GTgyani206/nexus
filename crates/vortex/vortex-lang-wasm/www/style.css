@@ -1,0 +1,13 @@
+body {
+  background: #181818;
+  color: #eee;
+  margin: 0;
+  font-family: monospace;
+}
+
+#terminal {
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+  padding: 0;
+}
