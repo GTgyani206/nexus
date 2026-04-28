@@ -1,6 +1,6 @@
 {
   "name": "nexus-lang",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A parallel language with an Interaction Combinator runtime",
   "keywords": [
     "parallel",
