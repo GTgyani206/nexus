@@ -1,3 +1,1 @@
-const getBinary = require("./getBinary");
-
-getBinary().install();
+require('./getBinary').install();
