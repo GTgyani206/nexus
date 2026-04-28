@@ -1,9 +1,7 @@
-[package]
-name = "vortex-lang"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-rustyline = "12.0"
-colored = "2.0"
-# CUDA dependencies removed for stability
+[workspace]
+members = [
+    "crates/nexus-ir",
+    "crates/vortex",
+    "crates/vice",
+]
+resolver = "2"

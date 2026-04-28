@@ -58,7 +58,7 @@ impl Environment {
                 "print".to_string(),
                 vec!["value".to_string()],
                 Box::new(crate::ast::Stmt::Block(vec![])), // dummy body
-                false, // not a GPU function
+                false,                                     // not a GPU function
             ),
         );
         Rc::new(RefCell::new(env))
@@ -102,14 +102,16 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let gpu_runtime = GPURuntime::new();
-        
+
         // Check if GPU acceleration is available
         if gpu_runtime.is_available() {
             println!("GPU acceleration is enabled. GPU functions will run on the GPU.");
         } else {
-            println!("GPU acceleration is not available. GPU functions will be simulated on the CPU.");
+            println!(
+                "GPU acceleration is not available. GPU functions will be simulated on the CPU."
+            );
         }
-        
+
         Self {
             environment: Environment::new(),
             gpu_runtime,
@@ -117,13 +119,26 @@ impl Interpreter {
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), String> {
+        self.interpret_with_result(&statements).map(|_| ())
+    }
+
+    pub fn interpret_with_result(&mut self, statements: &[Stmt]) -> Result<Option<Value>, String> {
+        let mut last_value = None;
+
         for stmt in statements {
-            let result = self.execute(&stmt)?;
-            if let RuntimeResult::Return(_) = result {
-                break;
+            let result = self.execute(stmt)?;
+            match result {
+                RuntimeResult::Value(value) => {
+                    last_value = Some(value);
+                }
+                RuntimeResult::Return(value) => {
+                    return Ok(Some(value));
+                }
+                RuntimeResult::None => {}
             }
         }
-        Ok(())
+
+        Ok(last_value)
     }
 
     fn execute(&mut self, stmt: &Stmt) -> Result<RuntimeResult, String> {
@@ -134,19 +149,23 @@ impl Interpreter {
                     Ok(RuntimeResult::Value(v)) => {
                         self.environment.borrow_mut().define(name.clone(), v);
                         Ok(RuntimeResult::Value(Value::Nil))
-                    },
+                    }
                     Ok(RuntimeResult::Return(_)) => {
                         Err("Invalid return in variable declaration".to_string())
-                    },
+                    }
                     Ok(RuntimeResult::None) => {
                         // Define variable with default nil value
-                        self.environment.borrow_mut().define(name.clone(), Value::Nil);
+                        self.environment
+                            .borrow_mut()
+                            .define(name.clone(), Value::Nil);
                         Ok(RuntimeResult::Value(Value::Nil))
-                    },
+                    }
                     Err(e) => {
                         println!("Warning: Error in variable declaration: {}", e);
                         // Define variable with default nil value to continue execution
-                        self.environment.borrow_mut().define(name.clone(), Value::Nil);
+                        self.environment
+                            .borrow_mut()
+                            .define(name.clone(), Value::Nil);
                         Ok(RuntimeResult::Value(Value::Nil))
                     }
                 }
@@ -182,10 +201,7 @@ impl Interpreter {
                     Err("Invalid return in if condition".to_string())
                 }
             }
-            Stmt::Branch {
-                condition,
-                body,
-            } => {
+            Stmt::Branch { condition, body } => {
                 println!("Executing branch statement");
                 let cond = self.evaluate(condition)?;
                 if let RuntimeResult::Value(val) = cond {
@@ -200,12 +216,10 @@ impl Interpreter {
                     Err("Invalid return in branch condition".to_string())
                 }
             }
-            Stmt::Fallback(body) => {
-                self.execute(body)
-            }
+            Stmt::Fallback(body) => self.execute(body),
             Stmt::For { var, range, body } => {
                 println!("Executing 'for' loop with variable '{}'", var);
-                
+
                 // Handle different range types
                 let (start_val, end_val) = match &range {
                     Expr::Range { start, end } => {
@@ -218,7 +232,7 @@ impl Interpreter {
                             _ => 0,
                         };
                         (s, e)
-                    },
+                    }
                     _ => {
                         // Try to evaluate as a single number (0..n)
                         match self.evaluate(&range)? {
@@ -230,32 +244,34 @@ impl Interpreter {
                         }
                     }
                 };
-                
+
                 println!("Loop range: {}..{}", start_val, end_val);
                 for i in start_val..end_val {
                     println!("For loop iteration {}", i);
                     // Create a new environment for each iteration
                     let loop_env = Environment::with_parent(Rc::clone(&self.environment));
                     let prev_env = std::mem::replace(&mut self.environment, loop_env);
-                    
+
                     // Define the loop variable
-                    self.environment.borrow_mut().define(var.clone(), Value::Number(i));
-                    
+                    self.environment
+                        .borrow_mut()
+                        .define(var.clone(), Value::Number(i));
+
                     // Execute the loop body
                     match self.execute(body) {
                         Ok(RuntimeResult::Return(v)) => {
                             println!("Return statement in loop body, exiting loop");
                             self.environment = prev_env;
                             return Ok(RuntimeResult::Return(v));
-                        },
+                        }
                         Err(e) => {
                             println!("Error in loop body: {}", e);
                             self.environment = prev_env;
                             return Err(e);
-                        },
+                        }
                         _ => {}
                     }
-                    
+
                     // Restore the environment
                     self.environment = prev_env;
                 }
@@ -264,7 +280,7 @@ impl Interpreter {
             }
             Stmt::Parallel { var, range, body } => {
                 println!("Executing parallel loop with variable '{}'", var);
-                
+
                 // Handle different range types for parallel execution
                 let (start_val, end_val) = match &range {
                     Expr::Range { start, end } => {
@@ -277,7 +293,7 @@ impl Interpreter {
                             _ => 0,
                         };
                         (s, e)
-                    },
+                    }
                     _ => {
                         // Try to evaluate as a single number (0..n)
                         match self.evaluate(&range)? {
@@ -289,34 +305,39 @@ impl Interpreter {
                         }
                     }
                 };
-                
-                println!("Using GPU runtime for parallel execution over range {}..{}", start_val, end_val);
-                
+
+                println!(
+                    "Using GPU runtime for parallel execution over range {}..{}",
+                    start_val, end_val
+                );
+
                 // Convert the range to an expression for the GPU runtime
                 let range_expr = Expr::Range {
                     start: Box::new(Expr::Number(start_val)),
                     end: Box::new(Expr::Number(end_val)),
                 };
-                
+
                 // Execute in parallel on the GPU
                 match self.gpu_runtime.execute_parallel(&var, &range_expr, body) {
                     Ok(_) => {
                         println!("GPU parallel execution completed successfully");
                         Ok(RuntimeResult::Value(Value::Nil))
-                    },
+                    }
                     Err(e) => {
                         println!("GPU parallel execution failed: {}", e);
                         println!("Falling back to sequential execution");
-                        
+
                         // Fall back to sequential execution
                         for i in start_val..end_val {
                             let loop_env = Environment::with_parent(Rc::clone(&self.environment));
                             let prev_env = std::mem::replace(&mut self.environment, loop_env);
-                            
-                            self.environment.borrow_mut().define(var.clone(), Value::Number(i));
-                            
+
+                            self.environment
+                                .borrow_mut()
+                                .define(var.clone(), Value::Number(i));
+
                             let _ = self.execute(body); // Ignore returns in parallel execution
-                            
+
                             self.environment = prev_env;
                         }
                         Ok(RuntimeResult::Value(Value::Nil))
@@ -331,26 +352,40 @@ impl Interpreter {
                     RuntimeResult::None => Ok(RuntimeResult::Return(Value::Nil)),
                 }
             }
-            Stmt::FunctionDef { name, params, return_type: _, body, gpu } => {
+            Stmt::FunctionDef {
+                name,
+                params,
+                return_type: _,
+                body,
+                gpu,
+            } => {
                 // Register the function in the environment, storing its body and param names
-                let param_names: Vec<String> = params.iter()
-                    .map(|(name, _)| name.clone())
-                    .collect();
+                let param_names: Vec<String> =
+                    params.iter().map(|(name, _)| name.clone()).collect();
 
                 self.environment.borrow_mut().define(
                     name.clone(),
-                    Value::Function(name.clone(), param_names.clone(), body.clone(), *gpu)
+                    Value::Function(name.clone(), param_names.clone(), body.clone(), *gpu),
                 );
 
                 if *gpu {
                     println!("GPU function '{}' registered", name);
                     // Register with GPU runtime too
-                    let param_types: Vec<(String, String)> = params.iter()
-                        .map(|(name, type_opt)| (name.clone(), type_opt.clone().unwrap_or_else(|| "Any".to_string())))
+                    let param_types: Vec<(String, String)> = params
+                        .iter()
+                        .map(|(name, type_opt)| {
+                            (
+                                name.clone(),
+                                type_opt.clone().unwrap_or_else(|| "Any".to_string()),
+                            )
+                        })
                         .collect();
 
-                    match self.gpu_runtime.register_function(name.clone(), param_types, body) {
-                        Ok(_) => {},
+                    match self
+                        .gpu_runtime
+                        .register_function(name.clone(), param_types, body)
+                    {
+                        Ok(_) => {}
                         Err(e) => println!("Warning: Failed to register GPU function: {}", e),
                     }
                 }
@@ -377,52 +412,54 @@ impl Interpreter {
                     println!("Warning: evaluating error placeholder in expression");
                     return Ok(RuntimeResult::Value(Value::Nil));
                 }
-                
+
                 let val = self.environment.borrow().get(name);
                 val.map(|v| RuntimeResult::Value(v))
                     .ok_or(format!("Undefined variable '{}'", name))
             }
-            Expr::Assignment { name, value } => {
-                match self.evaluate(value) {
-                    Ok(RuntimeResult::Value(v)) => {
-                        match self.environment.borrow_mut().assign(name, v.clone()) {
-                            Ok(_) => Ok(RuntimeResult::Value(v)),
-                            Err(e) => {
-                                println!("Warning: Assignment error: {}", e);
-                                Ok(RuntimeResult::Value(Value::Nil))
-                            }
+            Expr::Assignment { name, value } => match self.evaluate(value) {
+                Ok(RuntimeResult::Value(v)) => {
+                    match self.environment.borrow_mut().assign(name, v.clone()) {
+                        Ok(_) => Ok(RuntimeResult::Value(v)),
+                        Err(e) => {
+                            println!("Warning: Assignment error: {}", e);
+                            Ok(RuntimeResult::Value(Value::Nil))
                         }
-                    },
-                    Ok(RuntimeResult::Return(_)) => {
-                        Err("Return in assignment not allowed".into())
-                    },
-                    Ok(RuntimeResult::None) => {
-                        println!("Warning: Assignment evaluated to None");
-                        Ok(RuntimeResult::Value(Value::Nil))
-                    },
-                    Err(e) => {
-                        println!("Warning: Error evaluating assignment value: {}", e);
-                        Ok(RuntimeResult::Value(Value::Nil))
                     }
                 }
-            }
+                Ok(RuntimeResult::Return(_)) => Err("Return in assignment not allowed".into()),
+                Ok(RuntimeResult::None) => {
+                    println!("Warning: Assignment evaluated to None");
+                    Ok(RuntimeResult::Value(Value::Nil))
+                }
+                Err(e) => {
+                    println!("Warning: Error evaluating assignment value: {}", e);
+                    Ok(RuntimeResult::Value(Value::Nil))
+                }
+            },
             Expr::Binary { left, op, right } => {
                 let l = match self.evaluate(left) {
                     Ok(result) => result,
                     Err(e) => {
-                        println!("Warning: Error evaluating left side of binary expression: {}", e);
+                        println!(
+                            "Warning: Error evaluating left side of binary expression: {}",
+                            e
+                        );
                         return Ok(RuntimeResult::Value(Value::Nil));
                     }
                 };
-                
+
                 let r = match self.evaluate(right) {
                     Ok(result) => result,
                     Err(e) => {
-                        println!("Warning: Error evaluating right side of binary expression: {}", e);
+                        println!(
+                            "Warning: Error evaluating right side of binary expression: {}",
+                            e
+                        );
                         return Ok(RuntimeResult::Value(Value::Nil));
                     }
                 };
-                
+
                 if let (RuntimeResult::Value(left_val), RuntimeResult::Value(right_val)) = (l, r) {
                     match self.binary_op(op, left_val, right_val) {
                         Ok(val) => Ok(RuntimeResult::Value(val)),
@@ -459,22 +496,22 @@ impl Interpreter {
                     RuntimeResult::Value(val) => val,
                     _ => return Ok(RuntimeResult::Value(Value::Number(0))),
                 };
-                
+
                 let end_val = match self.evaluate(end)? {
                     RuntimeResult::Value(val) => val,
                     _ => return Ok(RuntimeResult::Value(Value::Number(0))),
                 };
-                
+
                 // For loop ranges, we return the range as a special value
                 // The loop execution will handle the actual iteration
                 match (start_val, end_val) {
                     (Value::Number(s), Value::Number(e)) => {
                         // Return the end value for simple loop counting
                         Ok(RuntimeResult::Value(Value::Number(e - s)))
-                    },
+                    }
                     _ => Ok(RuntimeResult::Value(Value::Number(0))),
                 }
-            },
+            }
             Expr::FunctionCall { callee, arguments } => {
                 match &**callee {
                     Expr::Ident(name) if name == "print" => {
@@ -487,29 +524,32 @@ impl Interpreter {
                             }
                         }
                         Ok(RuntimeResult::Value(Value::Nil))
-                    },
+                    }
                     Expr::Ident(name) => {
                         // Check if it's a GPU function first
                         if name.ends_with("_gpu") || name.starts_with("gpu_") {
                             println!("Calling GPU function: {}", name);
-                            
+
                             // Evaluate all arguments
                             let mut arg_values = Vec::new();
                             for arg in arguments {
                                 match self.evaluate(arg)? {
                                     RuntimeResult::Value(val) => arg_values.push(val),
                                     _ => {
-                                        return Err(format!("Invalid argument to GPU function {}", name));
+                                        return Err(format!(
+                                            "Invalid argument to GPU function {}",
+                                            name
+                                        ));
                                     }
                                 }
                             }
-                            
+
                             // Execute on the GPU
                             match self.gpu_runtime.execute_function(name, arg_values) {
                                 Ok(result) => {
                                     println!("GPU function returned: {:?}", result);
                                     Ok(RuntimeResult::Value(result))
-                                },
+                                }
                                 Err(e) => {
                                     println!("GPU function execution failed: {}", e);
                                     Err(format!("GPU function execution error: {}", e))
@@ -522,13 +562,17 @@ impl Interpreter {
                                 let env_ref = self.environment.borrow();
                                 match env_ref.get(name) {
                                     Some(value) => Some(value.clone()),
-                                    None => None
+                                    None => None,
                                 }
                             };
-                            
+
                             match function_result {
                                 Some(Value::Function(fn_name, param_names, fn_body, is_gpu)) => {
-                                    println!("Calling {} function: {}", if is_gpu { "GPU" } else { "CPU" }, fn_name);
+                                    println!(
+                                        "Calling {} function: {}",
+                                        if is_gpu { "GPU" } else { "CPU" },
+                                        fn_name
+                                    );
 
                                     // Evaluate all arguments
                                     let mut arg_values = Vec::new();
@@ -536,7 +580,10 @@ impl Interpreter {
                                         match self.evaluate(arg)? {
                                             RuntimeResult::Value(val) => arg_values.push(val),
                                             _ => {
-                                                return Err(format!("Invalid argument to function {}", name));
+                                                return Err(format!(
+                                                    "Invalid argument to function {}",
+                                                    name
+                                                ));
                                             }
                                         }
                                     }
@@ -556,14 +603,20 @@ impl Interpreter {
                                     self.environment = func_env;
 
                                     // Bind arguments to parameter names
-                                    for (param, value) in param_names.iter().zip(arg_values.into_iter()) {
+                                    for (param, value) in
+                                        param_names.iter().zip(arg_values.into_iter())
+                                    {
                                         self.environment.borrow_mut().define(param.clone(), value);
                                     }
 
                                     // Execute the function body
                                     let result = match self.execute(&fn_body) {
-                                        Ok(RuntimeResult::Return(val)) => Ok(RuntimeResult::Value(val)),
-                                        Ok(RuntimeResult::Value(val)) => Ok(RuntimeResult::Value(val)),
+                                        Ok(RuntimeResult::Return(val)) => {
+                                            Ok(RuntimeResult::Value(val))
+                                        }
+                                        Ok(RuntimeResult::Value(val)) => {
+                                            Ok(RuntimeResult::Value(val))
+                                        }
                                         Ok(_) => Ok(RuntimeResult::Value(Value::Nil)),
                                         Err(e) => Err(e),
                                     };
@@ -572,14 +625,14 @@ impl Interpreter {
                                     self.environment = prev_env;
 
                                     result
-                                },
+                                }
                                 _ => {
                                     println!("Warning: Undefined function: {}", name);
                                     Err(format!("Undefined function: {}", name))
                                 }
                             }
                         }
-                    },
+                    }
                     _ => {
                         println!("Warning: Callee is not a function name");
                         Err("Invalid function call: callee is not a function name".to_string())
@@ -640,21 +693,21 @@ impl Interpreter {
                 // Convert the operation to work on floating point
                 let float_result = f(a as i64, b as i64) as f64;
                 Ok(Value::Floating(float_result))
-            },
+            }
             (Value::Number(a), Value::Floating(b)) => {
                 // Mixed number types
                 let float_result = f(a, b as i64) as f64;
                 Ok(Value::Floating(float_result))
-            },
+            }
             (Value::Floating(a), Value::Number(b)) => {
                 // Mixed number types
                 let float_result = f(a as i64, b) as f64;
                 Ok(Value::Floating(float_result))
-            },
+            }
             _ => {
                 println!("Warning: Expected numeric operands");
                 Ok(Value::Number(0)) // Default to 0 for error recovery
-            },
+            }
         }
     }
 

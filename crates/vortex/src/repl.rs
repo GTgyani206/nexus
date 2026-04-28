@@ -23,10 +23,10 @@ pub struct VortexRepl {
 impl VortexRepl {
     pub fn new() -> Result<Self> {
         let mut editor = DefaultEditor::new()?;
-        
+
         // Try to load history from file
         let _ = editor.load_history("vortex_history.txt");
-        
+
         Ok(VortexRepl {
             interpreter: Interpreter::new(),
             editor,
@@ -43,7 +43,7 @@ impl VortexRepl {
 
         loop {
             let prompt = self.get_prompt();
-            
+
             match self.editor.readline(&prompt) {
                 Ok(line) => {
                     // Add to history if not empty and not a command
@@ -87,19 +87,32 @@ impl VortexRepl {
     }
 
     fn print_banner(&self) {
-        println!("{}", "=============================================================".cyan());
-        println!("{}", "||        VORTEX LANGUAGE - Interactive REPL             ||".cyan());
-        println!("{}", "=============================================================".cyan());
+        println!(
+            "{}",
+            "=============================================================".cyan()
+        );
+        println!(
+            "{}",
+            "||        VORTEX LANGUAGE - Interactive REPL             ||".cyan()
+        );
+        println!(
+            "{}",
+            "=============================================================".cyan()
+        );
         println!();
         println!("{} {}", "Version:".green().bold(), self.version.white());
-        
+
         // Check GPU availability
         if self.interpreter.gpu_runtime.is_available() {
-            println!("{} {}", "GPU:".green().bold(), "Available (Simulation Mode)".green());
+            println!(
+                "{} {}",
+                "GPU:".green().bold(),
+                "Available (Simulation Mode)".green()
+            );
         } else {
             println!("{} {}", "GPU:".green().bold(), "Not Available".red());
         }
-        
+
         println!("{} {}", "Mode:".green().bold(), "Interactive REPL".white());
         println!();
     }
@@ -110,12 +123,19 @@ impl VortexRepl {
         println!("  {}  - Exit the REPL", ":exit".cyan());
         println!("  {}  - Clear the screen", ":clear".cyan());
         println!("  {}  - Show command history", ":history".cyan());
-        println!("  {}  - Load and execute a Vortex file", ":load <file>".cyan());
+        println!(
+            "  {}  - Load and execute a Vortex file",
+            ":load <file>".cyan()
+        );
         println!("  {}  - Show current environment variables", ":env".cyan());
         println!("  {}  - Reset the interpreter state", ":reset".cyan());
         println!();
         println!("{}", "Multi-line input:".yellow().bold());
-        println!("  - Use {} or {} to start multi-line blocks", "if:".cyan(), "fn:".cyan());
+        println!(
+            "  - Use {} or {} to start multi-line blocks",
+            "if:".cyan(),
+            "fn:".cyan()
+        );
         println!("  - Press {} to cancel multi-line input", "Ctrl+C".cyan());
         println!();
         println!("{}", "Enter Vortex code or use :help for commands".green());
@@ -175,7 +195,7 @@ impl VortexRepl {
 
     fn handle_input(&mut self, input: &str) {
         let line = input.trim();
-        
+
         // Check if this starts or continues a multi-line block
         if self.should_start_multi_line(line) || self.in_multi_line {
             self.handle_multi_line_input(line);
@@ -188,17 +208,16 @@ impl VortexRepl {
 
     fn should_start_multi_line(&self, line: &str) -> bool {
         let trimmed = line.trim();
-        trimmed.ends_with(':') && (
-            trimmed.starts_with("if ") ||
-            trimmed.starts_with("then ") ||
-            trimmed.starts_with("else:") ||
-            trimmed.starts_with("for ") ||
-            trimmed.starts_with("parallel ") ||
-            trimmed.starts_with("fn ") ||
-            trimmed.starts_with("@gpu fn ") ||
-            trimmed.starts_with("branch ") ||
-            trimmed.starts_with("fallback")
-        )
+        trimmed.ends_with(':')
+            && (trimmed.starts_with("if ")
+                || trimmed.starts_with("then ")
+                || trimmed.starts_with("else:")
+                || trimmed.starts_with("for ")
+                || trimmed.starts_with("parallel ")
+                || trimmed.starts_with("fn ")
+                || trimmed.starts_with("@gpu fn ")
+                || trimmed.starts_with("branch ")
+                || trimmed.starts_with("fallback"))
     }
 
     fn handle_multi_line_input(&mut self, line: &str) {
@@ -214,11 +233,11 @@ impl VortexRepl {
         }
         self.multi_line_buffer.push_str(line);
 
-        // Simple heuristic: if line is empty or doesn't start with whitespace, 
+        // Simple heuristic: if line is empty or doesn't start with whitespace,
         // and we're not in a nested block, consider the multi-line input complete
-        if line.trim().is_empty() || 
-           (!line.starts_with(' ') && !line.starts_with('\t') && self.bracket_depth <= 0) {
-            
+        if line.trim().is_empty()
+            || (!line.starts_with(' ') && !line.starts_with('\t') && self.bracket_depth <= 0)
+        {
             // Check if we have a complete block
             if self.is_complete_block() {
                 let code = self.multi_line_buffer.clone();
@@ -231,24 +250,25 @@ impl VortexRepl {
     fn is_complete_block(&self) -> bool {
         // Simple check: if buffer contains keywords that typically end blocks
         let buffer = self.multi_line_buffer.trim();
-        
+
         // Check for function definitions
         if buffer.contains("fn ") && buffer.contains("return") {
             return true;
         }
-        
+
         // Check for control structures with bodies
-        if (buffer.contains("if ") || buffer.contains("for ") || buffer.contains("parallel ")) 
-           && !buffer.trim().ends_with(':') {
+        if (buffer.contains("if ") || buffer.contains("for ") || buffer.contains("parallel "))
+            && !buffer.trim().ends_with(':')
+        {
             return true;
         }
-        
+
         // Check for single-line statements that end with colon but have content
         if buffer.lines().count() > 1 {
             let last_line = buffer.lines().last().unwrap_or("").trim();
             return !last_line.is_empty() && !last_line.ends_with(':');
         }
-        
+
         false
     }
 
@@ -310,7 +330,7 @@ impl VortexRepl {
 
     fn load_file(&mut self, filename: &str) {
         let path = Path::new(filename);
-        
+
         match fs::read_to_string(path) {
             Ok(content) => {
                 println!("{} Loading file: {}", "Info:".blue(), filename.cyan());
@@ -318,7 +338,12 @@ impl VortexRepl {
                 println!("{} File executed successfully.", "Success:".green());
             }
             Err(e) => {
-                println!("{} Failed to load file '{}': {}", "Error:".red(), filename, e);
+                println!(
+                    "{} Failed to load file '{}': {}",
+                    "Error:".red(),
+                    filename,
+                    e
+                );
             }
         }
     }
@@ -327,8 +352,14 @@ impl VortexRepl {
         println!("{}", "Current Environment:".yellow().bold());
         // This would require exposing the environment from the interpreter
         // For now, just show a placeholder
-        println!("  {} Environment inspection not yet implemented", "Info:".blue());
-        println!("  {} Variables and functions are stored internally", "Note:".yellow());
+        println!(
+            "  {} Environment inspection not yet implemented",
+            "Info:".blue()
+        );
+        println!(
+            "  {} Variables and functions are stored internally",
+            "Note:".yellow()
+        );
     }
 }
 

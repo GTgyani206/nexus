@@ -43,11 +43,11 @@ impl Parser {
                 } else {
                     None
                 }
-            },
+            }
             Token::Return => self.parse_return_statement(),
             Token::Identifier(_) if self.peek_next() == Some(&Token::Lparen) => {
                 Some(Stmt::ExprStmt(self.parse_expression()))
-            },
+            }
             _ => {
                 if self.is_expression_start() {
                     Some(Stmt::ExprStmt(self.parse_expression()))
@@ -60,7 +60,7 @@ impl Parser {
 
     fn parse_let_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'let'
-        
+
         let mutable = if self.peek() == &Token::Mut {
             self.advance();
             true
@@ -98,15 +98,27 @@ impl Parser {
 
     fn parse_if_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'if'
-        
+
         let condition = self.parse_expression();
-        
+
         if !self.match_token(&Token::Colon) {
             return None;
         }
 
         let mut then_statements = Vec::new();
-        while !matches!(self.peek(), Token::Then | Token::Else | Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let) {
+        while !matches!(
+            self.peek(),
+            Token::Then
+                | Token::Else
+                | Token::EOF
+                | Token::Branch
+                | Token::Fallback
+                | Token::For
+                | Token::Parallel
+                | Token::Fn
+                | Token::GPU
+                | Token::Let
+        ) {
             if let Some(stmt) = self.parse_statement() {
                 then_statements.push(stmt);
             } else {
@@ -120,13 +132,24 @@ impl Parser {
         // Handle 'then' (else-if)
         if self.match_token(&Token::Then) {
             let else_if_condition = self.parse_expression();
-            
+
             if !self.match_token(&Token::Colon) {
                 return None;
             }
 
             let mut else_if_statements = Vec::new();
-            while !matches!(self.peek(), Token::Else | Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let) {
+            while !matches!(
+                self.peek(),
+                Token::Else
+                    | Token::EOF
+                    | Token::Branch
+                    | Token::Fallback
+                    | Token::For
+                    | Token::Parallel
+                    | Token::Fn
+                    | Token::GPU
+                    | Token::Let
+            ) {
                 if let Some(stmt) = self.parse_statement() {
                     else_if_statements.push(stmt);
                 } else {
@@ -148,7 +171,17 @@ impl Parser {
             }
 
             let mut else_statements = Vec::new();
-            while !matches!(self.peek(), Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let) {
+            while !matches!(
+                self.peek(),
+                Token::EOF
+                    | Token::Branch
+                    | Token::Fallback
+                    | Token::For
+                    | Token::Parallel
+                    | Token::Fn
+                    | Token::GPU
+                    | Token::Let
+            ) {
                 if let Some(stmt) = self.parse_statement() {
                     else_statements.push(stmt);
                 } else {
@@ -157,7 +190,11 @@ impl Parser {
             }
 
             if let Some(ref mut existing_else) = else_branch {
-                if let Stmt::IfStmt { ref mut else_branch, .. } = **existing_else {
+                if let Stmt::IfStmt {
+                    ref mut else_branch,
+                    ..
+                } = **existing_else
+                {
                     *else_branch = Some(Box::new(Stmt::Block(else_statements)));
                 }
             } else {
@@ -174,9 +211,9 @@ impl Parser {
 
     fn parse_branch_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'branch'
-        
+
         let condition = self.parse_expression();
-        
+
         if !self.match_token(&Token::FatArrow) {
             return None;
         }
@@ -192,7 +229,7 @@ impl Parser {
 
     fn parse_fallback_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'fallback'
-        
+
         if !self.match_token(&Token::FatArrow) {
             return None;
         }
@@ -208,7 +245,7 @@ impl Parser {
 
     fn parse_for_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'for'
-        
+
         let var = match self.advance() {
             Token::Identifier(id) => id,
             _ => return None,
@@ -225,7 +262,18 @@ impl Parser {
         }
 
         let mut statements = Vec::new();
-        while !matches!(self.peek(), Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let | Token::If) {
+        while !matches!(
+            self.peek(),
+            Token::EOF
+                | Token::Branch
+                | Token::Fallback
+                | Token::For
+                | Token::Parallel
+                | Token::Fn
+                | Token::GPU
+                | Token::Let
+                | Token::If
+        ) {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
             } else {
@@ -240,7 +288,7 @@ impl Parser {
 
     fn parse_parallel_statement(&mut self) -> Option<Stmt> {
         self.advance(); // consume 'parallel'
-        
+
         let var = match self.advance() {
             Token::Identifier(id) => id,
             _ => return None,
@@ -257,7 +305,18 @@ impl Parser {
         }
 
         let mut statements = Vec::new();
-        while !matches!(self.peek(), Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let | Token::If) {
+        while !matches!(
+            self.peek(),
+            Token::EOF
+                | Token::Branch
+                | Token::Fallback
+                | Token::For
+                | Token::Parallel
+                | Token::Fn
+                | Token::GPU
+                | Token::Let
+                | Token::If
+        ) {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
             } else {
@@ -272,7 +331,7 @@ impl Parser {
 
     fn parse_function_statement(&mut self, gpu: bool) -> Option<Stmt> {
         self.advance(); // consume 'fn'
-        
+
         let name = match self.advance() {
             Token::Identifier(id) => id,
             _ => return None,
@@ -325,7 +384,18 @@ impl Parser {
         }
 
         let mut statements = Vec::new();
-        while !matches!(self.peek(), Token::EOF | Token::Branch | Token::Fallback | Token::For | Token::Parallel | Token::Fn | Token::GPU | Token::Let | Token::If) {
+        while !matches!(
+            self.peek(),
+            Token::EOF
+                | Token::Branch
+                | Token::Fallback
+                | Token::For
+                | Token::Parallel
+                | Token::Fn
+                | Token::GPU
+                | Token::Let
+                | Token::If
+        ) {
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
             } else {
@@ -357,7 +427,10 @@ impl Parser {
     fn parse_comparison(&mut self) -> Expr {
         let mut expr = self.parse_term();
 
-        while matches!(self.peek(), Token::GT | Token::GE | Token::LT | Token::LE | Token::EQ | Token::NE) {
+        while matches!(
+            self.peek(),
+            Token::GT | Token::GE | Token::LT | Token::LE | Token::EQ | Token::NE
+        ) {
             let op = self.advance();
             let right = self.parse_term();
             expr = Expr::Binary {
@@ -452,7 +525,7 @@ impl Parser {
                 } else {
                     Expr::Number(n)
                 }
-            },
+            }
             Token::Floating(f) => {
                 // Check for range syntax
                 if matches!(self.peek(), Token::Range | Token::Dot) {
@@ -460,7 +533,7 @@ impl Parser {
                 } else {
                     Expr::Floating(f)
                 }
-            },
+            }
             Token::Boolean(b) => Expr::Boolean(b),
             Token::String(s) => Expr::String(s),
             Token::Identifier(id) => {
@@ -470,7 +543,7 @@ impl Parser {
                 } else {
                     Expr::Ident(id)
                 }
-            },
+            }
             Token::Range => {
                 // Handle range(start, end) function
                 if self.match_token(&Token::Lparen) {
@@ -491,7 +564,7 @@ impl Parser {
                 } else {
                     Expr::Ident("range".to_string())
                 }
-            },
+            }
             Token::Lparen => {
                 let expr = self.parse_expression();
                 if self.match_token(&Token::Rparen) {
@@ -499,7 +572,7 @@ impl Parser {
                 } else {
                     expr
                 }
-            },
+            }
             _ => Expr::Ident("error".to_string()),
         }
     }
@@ -532,9 +605,14 @@ impl Parser {
     fn is_expression_start(&self) -> bool {
         matches!(
             self.peek(),
-            Token::Number(_) | Token::Floating(_) | Token::Boolean(_) | 
-            Token::String(_) | Token::Identifier(_) | Token::Lparen | 
-            Token::Minus | Token::Range
+            Token::Number(_)
+                | Token::Floating(_)
+                | Token::Boolean(_)
+                | Token::String(_)
+                | Token::Identifier(_)
+                | Token::Lparen
+                | Token::Minus
+                | Token::Range
         )
     }
 
@@ -554,7 +632,10 @@ impl Parser {
     }
 
     fn previous(&self) -> Token {
-        self.tokens.get(self.current - 1).unwrap_or(&Token::EOF).clone()
+        self.tokens
+            .get(self.current - 1)
+            .unwrap_or(&Token::EOF)
+            .clone()
     }
 
     fn is_at_end(&self) -> bool {

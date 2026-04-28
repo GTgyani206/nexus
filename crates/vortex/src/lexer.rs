@@ -81,12 +81,12 @@ use crate::token::Token;
 // one thing to be noted that the typical lexer does not store the tokens in a vector, but rather generates them on the fly as they are needed by the parser.
 pub struct Lexer {
     input: Vec<char>, //tokens are extracted in loop then are append here
-    position: usize,  //tells where in the source am I currently, and then the  advance() is called to move forward, This also ensures that the lexer does not process same character twice and also to keep it in bound
+    position: usize, //tells where in the source am I currently, and then the  advance() is called to move forward, This also ensures that the lexer does not process same character twice and also to keep it in bound
 }
 
-impl Lexer{
-    pub fn new(input: &str) -> Self{
-        Lexer{
+impl Lexer {
+    pub fn new(input: &str) -> Self {
+        Lexer {
             input: input.chars().collect(),
             position: 0,
         }
@@ -106,17 +106,17 @@ impl Lexer{
     }
 
     //move forward
-    fn advance(&mut self) -> Option<char>{
+    fn advance(&mut self) -> Option<char> {
         let ch = self.peek();
         self.position += 1;
         ch
     }
 
-    fn skip_whitespace(&mut self){
-        while let Some(ch) = self.peek(){
+    fn skip_whitespace(&mut self) {
+        while let Some(ch) = self.peek() {
             if ch.is_whitespace() {
                 self.advance();
-            }else{
+            } else {
                 break;
             }
         }
@@ -132,7 +132,7 @@ impl Lexer{
             Token::Dot
         }
     }
-    
+
     fn skip_comment(&mut self) {
         // Skip until the end of the line or end of file
         while let Some(ch) = self.peek() {
@@ -146,51 +146,50 @@ impl Lexer{
     //tokenizer logic
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-        match self.advance(){
-
+        match self.advance() {
             Some('=') => {
-                if self.peek() == Some('='){
+                if self.peek() == Some('=') {
                     self.advance();
                     Token::EQ
-                }else if self.peek() == Some('>'){
+                } else if self.peek() == Some('>') {
                     self.advance();
                     Token::FatArrow
-                }else{
+                } else {
                     Token::Equals
                 }
             }
 
             Some('-') => {
-                if self.peek() == Some('>'){
+                if self.peek() == Some('>') {
                     self.advance();
                     Token::Arrow
-                }else {
+                } else {
                     Token::Minus
                 }
             }
 
             Some('!') => {
-                if self.peek() == Some('='){
+                if self.peek() == Some('=') {
                     self.advance();
                     Token::NE
-                }else{
+                } else {
                     Token::EOF
                 }
             }
 
             Some('>') => {
-                if self.peek() == Some('='){
+                if self.peek() == Some('=') {
                     self.advance();
                     Token::GE
-                }else{
+                } else {
                     Token::GT
                 }
             }
             Some('<') => {
-                if self.peek() == Some('='){
+                if self.peek() == Some('=') {
                     self.advance();
                     Token::LE
-                }else{
+                } else {
                     Token::LT
                 }
             }
@@ -206,7 +205,7 @@ impl Lexer{
                 } else {
                     Token::Slash
                 }
-            },
+            }
             Some(':') => Token::Colon,
             Some('.') => {
                 if self.peek() == Some('.') {
@@ -215,7 +214,7 @@ impl Lexer{
                 } else {
                     Token::Dot
                 }
-            },
+            }
             Some(',') => Token::Comma,
             Some('(') => Token::Lparen,
             Some(')') => Token::Rparen,
@@ -230,7 +229,7 @@ impl Lexer{
                     if c == '"' {
                         self.advance();
                         break;
-                    }else{
+                    } else {
                         s.push(self.advance().unwrap());
                     }
                 }
@@ -241,10 +240,10 @@ impl Lexer{
                 let mut number = ch.to_string();
                 let mut is_float = false;
 
-                while let Some(c) = self.peek(){
-                    if c.is_ascii_digit(){
+                while let Some(c) = self.peek() {
+                    if c.is_ascii_digit() {
                         number.push(self.advance().unwrap());
-                    }else if c == '.' && !is_float {
+                    } else if c == '.' && !is_float {
                         // Check if this is a range operator (..) not a decimal point
                         if self.peek_next() == Some('.') {
                             // This is a range operator, don't consume the dot
@@ -252,14 +251,14 @@ impl Lexer{
                         }
                         is_float = true;
                         number.push(self.advance().unwrap());
-                    }else{
+                    } else {
                         break;
                     }
                 }
 
-                if is_float{
+                if is_float {
                     Token::Floating(number.parse::<f64>().unwrap())
-                }else{
+                } else {
                     Token::Number(number.parse::<i64>().unwrap())
                 }
             }
@@ -267,10 +266,10 @@ impl Lexer{
             Some('@') => {
                 // Handle annotation tokens separately
                 let mut ident = "@".to_string();
-                while let Some(c) = self.peek(){
+                while let Some(c) = self.peek() {
                     if c.is_alphanumeric() || c == '_' {
                         ident.push(self.advance().unwrap());
-                    }else{
+                    } else {
                         break;
                     }
                 }
@@ -279,39 +278,39 @@ impl Lexer{
                     "@gpu" => Token::GPU,
                     _ => Token::Identifier(ident), // Unknown annotation
                 }
-            },
+            }
             Some(ch) if ch.is_alphabetic() || ch == '_' => {
                 let mut ident = ch.to_string();
-                while let Some(c) = self.peek(){
+                while let Some(c) = self.peek() {
                     if c.is_alphanumeric() || c == '_' {
                         ident.push(self.advance().unwrap());
-                    }else{
+                    } else {
                         break;
                     }
                 }
 
                 match ident.as_str() {
-                "let" => Token::Let,
-                "mut" => Token::Mut,
-                "if" => Token::If,
-                "then" => Token::Then,
-                "else" => Token::Else,
-                "for" => Token::For,
-                "in" => Token::In,
-                "range" => Token::Range,
-                "fn" => Token::Fn,
-                "return" => Token::Return,
-                "true" => Token::Boolean(true),
-                "false" => Token::Boolean(false),
-                "branch" => Token::Branch,
-                "fallback" => Token::Fallback,
-                "parallel" => Token::Parallel,
-                "print" => Token::Identifier(ident), // Special case for print function
-                _ => Token::Identifier(ident),
+                    "let" => Token::Let,
+                    "mut" => Token::Mut,
+                    "if" => Token::If,
+                    "then" => Token::Then,
+                    "else" => Token::Else,
+                    "for" => Token::For,
+                    "in" => Token::In,
+                    "range" => Token::Range,
+                    "fn" => Token::Fn,
+                    "return" => Token::Return,
+                    "true" => Token::Boolean(true),
+                    "false" => Token::Boolean(false),
+                    "branch" => Token::Branch,
+                    "fallback" => Token::Fallback,
+                    "parallel" => Token::Parallel,
+                    "print" => Token::Identifier(ident), // Special case for print function
+                    _ => Token::Identifier(ident),
+                }
             }
+            Some(_) => Token::EOF, // Unknown char
+            None => Token::EOF,
         }
-        Some(_) => Token::EOF, // Unknown char
-        None => Token::EOF,
-    }
     }
 }

@@ -35,6 +35,7 @@ impl Runtime {
         self.stats.max_nodes = self.net.node_count();
 
         // Keep evaluating until no more redexes
+        // TODO v0.2: replace this sequential loop with rayon::par_iter()
         while let Some(redex) = self.net.next_redex() {
             // Apply the interaction rule
             match apply_interaction(&mut self.net, redex) {
